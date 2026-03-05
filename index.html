@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I Love You 💕</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: #111;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #FFDAE9;
+            overflow: hidden;
+        }
+
+        /* Envelope stage: no modal, just envelope on pink background */
+        #envelopeStage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+        }
+
+        body.show-modal .container {
+            display: block;
+        }
+
+        .container {
+            display: none;
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 650px;
+            width: 100%;
+            min-width: 0;
+            position: relative;
+        }
+
+        #puzzleStage {
+            display: none;
+        }
+
+        .envelope {
+            position: relative;
+            width: 220px;
+            height: 160px;
+            background: #f5e6d3;
+            border: 1px solid #d4c4a8;
+            border-radius: 4px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .envelope:hover:not(.opening) {
+            transform: scale(1.05);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.15);
+        }
+
+        .envelope-flap {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(165deg, #e8d5c4 0%, #d4c4a8 45%, #c9b89a 100%);
+            clip-path: polygon(0 0, 50% 50%, 100% 0);
+            transform-origin: top center;
+            transition: transform 0.8s cubic-bezier(0.34, 1.2, 0.64, 1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .envelope-flap-outline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .envelope-flap-outline line {
+            vector-effect: non-scaling-stroke;
+        }
+
+        .envelope.opening .envelope-flap {
+            transform: rotateX(-170deg);
+        }
+
+        .envelope-heart {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            color: #c41e3a;
+            pointer-events: none;
+            z-index: 1;
+            transition: opacity 0.35s ease;
+        }
+
+        .envelope-heart.hidden {
+            opacity: 0;
+        }
+
+        .envelope-heart svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        @media (min-width: 768px) {
+            .envelope {
+                width: 300px;
+                height: 218px;
+            }
+            .envelope-heart {
+                width: 52px;
+                height: 52px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .envelope {
+                width: 340px;
+                height: 247px;
+            }
+            .envelope-heart {
+                width: 58px;
+                height: 58px;
+            }
+        }
+
+        .envelope-stage-fade-out {
+            animation: envelopeFadeOut 0.5s ease forwards;
+        }
+
+        .puzzle-stage-fade-in {
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        @keyframes envelopeFadeOut {
+            to { opacity: 0; transform: scale(0.96); }
+        }
+
+        #puzzleStage h1,
+        #revealStage h1 {
+            font-size: 2.2em;
+            color: #111;
+            margin-bottom: 15px;
+        }
+
+        .puzzle-container {
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .puzzle-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 2px;
+            background: #ddd;
+            padding: 3px;
+            border-radius: 10px;
+            width: 100%;
+            aspect-ratio: 1;
+        }
+
+        .puzzle-tile {
+            min-width: 0;
+            min-height: 0;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .puzzle-tile:hover:not(.empty) {
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .puzzle-tile.empty {
+            background-color: #ddd;
+            box-shadow: none;
+            cursor: default;
+        }
+
+        .puzzle-tile.empty:hover {
+            transform: none;
+        }
+
+        .shuffle-button {
+            margin-top: 20px;
+            padding: 10px 25px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .shuffle-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .heart {
+            font-size: 4em;
+            margin: 20px 0;
+            animation: heartbeat 1.5s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(1.1); }
+        }
+
+        /* SUCCESS STAGE */
+        #successStage {
+            display: none;
+            animation: successAppear 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes successAppear {
+            from { opacity: 0; transform: scale(0.5) rotate(-10deg); }
+            to { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+
+        #successStage h2 {
+            color: #111;
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+
+        #successStage p {
+            font-size: 1.2em;
+            color: #333;
+            margin: 15px 0;
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            pointer-events: none;
+        }
+
+        @keyframes confetti-fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .sparkle {
+            position: fixed;
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: sparkleAnim 1s ease-out;
+        }
+
+        @keyframes sparkleAnim {
+            0% {
+                transform: scale(0) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1) rotate(180deg);
+                opacity: 0;
+            }
+        }
+
+        /* Celebration effect when puzzle solved */
+        @keyframes tileDisappear {
+            0% {
+                opacity: 1;
+                transform: scale(1) rotate(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(0.5) rotate(180deg);
+            }
+        }
+
+        .tile-disappear {
+            animation: tileDisappear 0.5s ease forwards;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                max-width: 94%;
+            }
+
+            .puzzle-container {
+                max-width: 360px;
+            }
+
+            #puzzleStage h1,
+            #revealStage h1 {
+                font-size: 1.7em;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .container {
+                padding: 16px;
+                max-width: 96%;
+            }
+
+            .puzzle-container {
+                max-width: 280px;
+            }
+
+            #puzzleStage h1,
+            #revealStage h1 {
+                font-size: 1.45em;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .container {
+                padding: 12px;
+            }
+
+            .puzzle-container {
+                max-width: 240px;
+            }
+
+            #puzzleStage h1,
+            #revealStage h1 {
+                font-size: 1.35em;
+            }
+        }
+
+        /* Reveal stage: full image + question */
+        #revealStage {
+            display: none;
+            animation: fadeIn 0.8s ease;
+        }
+
+        .full-image-wrap {
+            margin: 0 auto 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            max-width: 100%;
+        }
+
+        .full-image-wrap img {
+            display: block;
+            width: 100%;
+            height: auto;
+            animation: imageReveal 0.6s ease-out;
+        }
+
+        @keyframes imageReveal {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        #revealStage .complete-line {
+            font-size: 1.4em;
+            color: #111;
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+
+        #revealStage .valentine-question {
+            font-size: 1.5em;
+            color: #111;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .yes-only-btn {
+            padding: 14px 36px;
+            font-size: 1.2em;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .yes-only-btn:hover {
+            transform: scale(1.06);
+            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        /* Success: celebration + basketball */
+        .basketball-gif-wrap {
+            margin: 20px auto;
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 280px;
+        }
+
+        .basketball-gif-wrap img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        #successStage .made-the-shot {
+            font-size: 1.1em;
+            color: #666;
+            margin-top: 10px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <!-- ENVELOPE: no modal, just envelope on pink background -->
+    <div id="envelopeStage">
+        <div class="envelope" id="envelope">
+            <div class="envelope-heart" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" clip-rule="evenodd" /></svg>
+            </div>
+            <div class="envelope-flap">
+                <svg class="envelope-flap-outline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                    <line x1="0" y1="0" x2="50" y2="50" stroke="#d4c4a8" stroke-width="3" vector-effect="non-scaling-stroke" />
+                    <line x1="50" y1="50" x2="100" y2="0" stroke="#d4c4a8" stroke-width="3" vector-effect="non-scaling-stroke" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- STAGE 1: PUZZLE -->
+        <div id="puzzleStage">
+            <h1>My dear Gaby...</h1>
+            
+            <div class="puzzle-container">
+                <div class="puzzle-grid" id="puzzleGrid"></div>
+            </div>
+        </div>
+
+        <!-- STAGE 2: REVEAL (full image + question) -->
+        <div id="revealStage">
+            <h1>My dear Gaby...</h1>
+            <div class="full-image-wrap">
+                <img src="images/full-image.png" alt="Complete picture" />
+            </div>
+            <p class="complete-line">...you complete me.</p>
+            <p class="valentine-question">Will you be my Valentine?</p>
+            <button type="button" class="yes-only-btn" id="yesBtn">Yes</button>
+        </div>
+
+        <!-- STAGE 3: SUCCESS (celebration + basketball) -->
+        <div id="successStage">
+            <h2>YES! 🎉</h2>
+            <div class="heart">❤️</div>
+            <p>You said yes! Best Valentine's Day ever! 💕</p>
+            <div class="basketball-gif-wrap">
+                <img src="images/basketball-shot.gif" alt="Made the shot!" />
+            </div>
+            <p class="made-the-shot">Made the shot. 💕</p>
+        </div>
+    </div>
+
+    <script>
+        // ENVELOPE → PUZZLE (click envelope to open; then show modal)
+        const envelopeStage = document.getElementById('envelopeStage');
+        const envelope = document.getElementById('envelope');
+        const puzzleGrid = document.getElementById('puzzleGrid');
+        const puzzleStage = document.getElementById('puzzleStage');
+        const revealStage = document.getElementById('revealStage');
+        const successStage = document.getElementById('successStage');
+        
+        envelope.addEventListener('click', () => {
+            envelope.style.pointerEvents = 'none';
+            const heart = envelope.querySelector('.envelope-heart');
+            heart.classList.add('hidden');
+            setTimeout(() => {
+                envelope.classList.add('opening');
+                setTimeout(() => {
+                    envelopeStage.classList.add('envelope-stage-fade-out');
+                    setTimeout(() => {
+                        envelopeStage.style.display = 'none';
+                        document.body.classList.add('show-modal');
+                        puzzleStage.style.display = 'block';
+                        puzzleStage.classList.add('puzzle-stage-fade-in');
+                    }, 450);
+                }, 700);
+            }, 380);
+        });
+        
+        let tiles = [];
+        
+        // 3x3 puzzle: pieces 1–9, empty piece is 3 (top-right).
+        const EMPTY_PIECE = 3;
+        const solution = [1, 2, 3, 4, 5, 6, 7, 8, 9]; // empty (3) at index 2 = top-right
+        let currentState = [...solution];
+        
+        function initPuzzle() {
+            scramblePuzzle();
+            renderPuzzle();
+        }
+        
+        function scramblePuzzle() {
+            // Make 100 random valid moves to scramble
+            for (let i = 0; i < 100; i++) {
+                const emptyIndex = currentState.indexOf(EMPTY_PIECE);
+                const validMoves = getValidMoves(emptyIndex);
+                const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+                [currentState[emptyIndex], currentState[randomMove]] = [currentState[randomMove], currentState[emptyIndex]];
+            }
+        }
+        
+        function getValidMoves(emptyIndex) {
+            const validMoves = [];
+            const row = Math.floor(emptyIndex / 3);
+            const col = emptyIndex % 3;
+            
+            if (row > 0) validMoves.push(emptyIndex - 3);
+            if (row < 2) validMoves.push(emptyIndex + 3);
+            if (col > 0) validMoves.push(emptyIndex - 1);
+            if (col < 2) validMoves.push(emptyIndex + 1);
+            
+            return validMoves;
+        }
+        
+        function renderPuzzle() {
+            puzzleGrid.innerHTML = '';
+            tiles = [];
+            
+            currentState.forEach((piece, index) => {
+                const tile = document.createElement('div');
+                tile.className = 'puzzle-tile';
+                
+                if (piece === EMPTY_PIECE) {
+                    tile.classList.add('empty');
+                    // No image: empty space is transparent until puzzle is solved
+                } else {
+                    tile.style.backgroundImage = `url('images/tile-${piece}.png')`;
+                    tile.onclick = () => moveTile(index);
+                }
+                
+                puzzleGrid.appendChild(tile);
+                tiles.push(tile);
+            });
+        }
+        
+        function moveTile(index) {
+            const emptyIndex = currentState.indexOf(EMPTY_PIECE);
+            const validMoves = getValidMoves(emptyIndex);
+            
+            if (validMoves.includes(index)) {
+                [currentState[emptyIndex], currentState[index]] = [currentState[index], currentState[emptyIndex]];
+                renderPuzzle();
+                
+                // Check if solved
+                if (isPuzzleSolved()) {
+                    setTimeout(onPuzzleSolved, 300);
+                }
+            }
+        }
+        
+        function isPuzzleSolved() {
+            return currentState.every((tile, index) => tile === solution[index]);
+        }
+        
+        function onPuzzleSolved() {
+            tiles.forEach((tile, index) => {
+                setTimeout(() => {
+                    tile.classList.add('tile-disappear');
+                    createSparkles(
+                        tile.getBoundingClientRect().left + tile.offsetWidth / 2,
+                        tile.getBoundingClientRect().top + tile.offsetHeight / 2
+                    );
+                }, index * 30);
+            });
+            setTimeout(() => {
+                puzzleStage.style.display = 'none';
+                revealStage.style.display = 'block';
+            }, 1200);
+        }
+        
+        function createSparkles(x, y) {
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    const sparkle = document.createElement('div');
+                    sparkle.className = 'sparkle';
+                    sparkle.style.left = x + (Math.random() - 0.5) * 50 + 'px';
+                    sparkle.style.top = y + (Math.random() - 0.5) * 50 + 'px';
+                    sparkle.style.background = ['#f093fb', '#f5576c', '#ffd700'][Math.floor(Math.random() * 3)];
+                    document.body.appendChild(sparkle);
+                    setTimeout(() => sparkle.remove(), 1000);
+                }, i * 50);
+            }
+        }
+        
+        initPuzzle();
+        
+        document.getElementById('yesBtn').addEventListener('click', () => {
+            for (let i = 0; i < 100; i++) createConfetti();
+            revealStage.style.display = 'none';
+            successStage.style.display = 'block';
+        });
+        
+        function createConfetti() {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + '%';
+            confetti.style.top = '-10px';
+            confetti.style.background = ['#f093fb', '#f5576c', '#ffd700', '#4facfe'][Math.floor(Math.random() * 4)];
+            confetti.style.animation = `confetti-fall ${2 + Math.random()}s linear`;
+            document.body.appendChild(confetti);
+            
+            setTimeout(() => confetti.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
